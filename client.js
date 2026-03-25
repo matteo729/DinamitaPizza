@@ -164,6 +164,51 @@ function renderPizzas() {
     `).join('');
 }
 
+// client.js - Añadir esta función para mostrar imágenes base64 correctamente
+
+function renderPizzas() {
+    const container = document.getElementById('pizzasContainer');
+    if (!container) return;
+
+    if (pizzas.length === 0) {
+        container.innerHTML = '<div style="text-align: center; grid-column: 1/-1; padding: 3rem;"><p>No hay pizzas disponibles en este momento.</p></div>';
+        return;
+    }
+
+    container.innerHTML = pizzas.map(pizza => {
+        // Determinar la fuente de la imagen
+        let imgSrc = pizza.imagen_url || 'https://via.placeholder.com/400x300?text=Pizza';
+        
+        // Si es base64, usarlo directamente
+        if (pizza.imagen_data && pizza.imagen_data.startsWith('data:image')) {
+            imgSrc = pizza.imagen_data;
+        }
+        
+        return `
+        <div class="pizza-card scroll-reveal" data-id="${pizza.id}">
+            <div class="pizza-img-container">
+                <img src="${imgSrc}" 
+                     alt="${escapeHtml(pizza.nombre)}" 
+                     class="pizza-img" 
+                     onerror="this.src='https://via.placeholder.com/400x300?text=Pizza'">
+                <div class="pizza-badge">🔥 Popular</div>
+            </div>
+            <div class="pizza-info">
+                <h3 class="pizza-nombre">${escapeHtml(pizza.nombre)}</h3>
+                <p class="pizza-descripcion">${escapeHtml(pizza.descripcion)}</p>
+                <div class="pizza-footer">
+                    <div>
+                        <div class="pizza-precio">$${pizza.precio.toFixed(2)}</div>
+                        <div class="pizza-stock">🍕 ${pizza.stock} disponibles</div>
+                    </div>
+                    <button class="btn-add" onclick="agregarAlCarrito(${pizza.id})">
+                        Agregar +
+                    </button>
+                </div>
+            </div>
+        </div>
+    `}).join('');
+}
 // ==================== CARRITO ====================
 function agregarAlCarrito(pizzaId) {
     const pizza = pizzas.find(p => p.id === pizzaId);
