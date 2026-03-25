@@ -1,72 +1,107 @@
-// admin.js - Panel de administración
+// admin.js - Panel de administración mejorado
 
 let pizzas = [];
+let carouselImages = [];
+
+// Datos de demostración (para pruebas sin Supabase)
+const DEMO_PIZZAS = [
+    { id: 1, nombre: 'Pizza Margherita', descripcion: 'Salsa de tomate, mozzarella fresca, albahaca y aceite de oliva', precio: 12.99, stock: 10, imagen_url: 'https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?w=200' },
+    { id: 2, nombre: 'Pizza Pepperoni', descripcion: 'Salsa de tomate, mozzarella y pepperoni italiano', precio: 14.99, stock: 15, imagen_url: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?w=200' },
+    { id: 3, nombre: 'Pizza Cuatro Quesos', descripcion: 'Mozzarella, gorgonzola, parmesano y queso de cabra', precio: 16.99, stock: 8, imagen_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=200' }
+];
+
+const DEMO_CAROUSEL = [
+    'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600',
+    'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600',
+    'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=600'
+];
+
+let nextId = 4;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // Verificar conexión
-    const connected = await checkConnection();
-    if (!connected) {
-        showNotification('Error de conexión con Supabase', 'error');
-        return;
-    }
-
-    await loadPizzas();
-    await loadCarouselImages();
-
+    // Cargar datos de demostración (cambiar a Supabase cuando esté configurado)
+    loadDemoData();
+    
     // Event listeners
-    document.getElementById('pizza-form')?.addEventListener('submit', guardarPizza);
-    document.getElementById('cancelar-btn')?.addEventListener('click', cancelarEdicion);
-    document.getElementById('carrusel-form')?.addEventListener('submit', agregarImagenCarrusel);
+    document.getElementById('pizzaForm')?.addEventListener('submit', guardarPizza);
+    document.getElementById('cancelBtn')?.addEventListener('click', cancelarEdicion);
+    document.getElementById('carruselForm')?.addEventListener('submit', agregarImagenCarrusel);
 });
 
-// Cargar pizzas desde Supabase
-async function loadPizzas() {
-    try {
-        const { data, error } = await supabaseClient
-            .from('productos')
-            .select('*')
-            .order('nombre');
-
-        if (error) throw error;
-
-        pizzas = data;
-        renderAdminPizzas();
-    } catch (error) {
-        console.error('Error cargando pizzas:', error);
-        showNotification('Error al cargar las pizzas', 'error');
-    }
+function loadDemoData() {
+    pizzas = [...DEMO_PIZZAS];
+    carouselImages = [...DEMO_CAROUSEL];
+    renderAdminPizzas();
+    renderCarruselImages();
+    updateStats();
 }
 
-// Renderizar pizzas en el panel admin
 function renderAdminPizzas() {
-    const container = document.getElementById('admin-pizzas-list');
-    if (!container) return;
+    const tbody = document.getElementById('pizzasTableBody');
+    if (!tbody) return;
 
     if (pizzas.length === 0) {
-        container.innerHTML = '<p>No hay pizzas registradas.</p>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No hay pizzas registradas</td></tr>';
         return;
     }
 
-    container.innerHTML = pizzas.map(pizza => `
-        <div style="background: white; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-            <div style="flex: 1;">
-                <strong>${escapeHtml(pizza.nombre)}</strong><br>
-                <small>${escapeHtml(pizza.descripcion)}</small><br>
-                <span>💰 $${pizza.precio.toFixed(2)} | 📦 Stock: ${pizza.stock}</span>
-            </div>
-            <div>
-                <button onclick="editarPizza(${pizza.id})" class="btn btn-secondary" style="margin-right: 0.5rem;">✏️ Editar</button>
-                <button onclick="eliminarPizza(${pizza.id})" class="btn" style="background: #dc3545; color: white;">🗑️ Eliminar</button>
-            </div>
+    tbody.innerHTML = pizzas.map(pizza => `
+        <tr>
+            <td>
+                <img src="${pizza.imagen_url || 'https://via.placeholder.com/60x60?text=Pizza'}" 
+                     class="pizza-img-mini" 
+                     onerror="this.src='https://via.placeholder.com/60x60?text=Pizza'">
+            </td>
+            <td><strong>${escapeHtml(pizza.nombre)}</strong></td>
+            <td style="max-width: 250px;">${escapeHtml(pizza.descripcion.substring(0, 60))}${pizza.descripcion.length > 60 ? '...' : ''}</td>
+            <td>$${pizza.precio.toFixed(2)}</td>
+            <td>
+                <span style="background: ${pizza.stock > 5 ? '#28a745' : pizza.stock > 0 ? '#ffc107' : '#dc3545'}; 
+                             color: white; padding: 0.25rem 0.5rem; border-radius: 20px; font-size: 0.75rem;">
+                    ${pizza.stock} unidades
+                </span>
+            </td>
+            <td>
+                <div class="admin-actions">
+                    <button class="edit-btn" onclick="editarPizza(${pizza.id})">✏️ Editar</button>
+                    <button class="delete-btn" onclick="eliminarPizza(${pizza.id})">🗑️ Eliminar</button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function renderCarruselImages() {
+    const container = document.getElementById('carruselGrid');
+    if (!container) return;
+
+    if (carouselImages.length === 0) {
+        container.innerHTML = '<p>No hay imágenes en el carrusel. Agrega algunas arriba.</p>';
+        return;
+    }
+
+    container.innerHTML = carouselImages.map((img, index) => `
+        <div class="carrusel-item">
+            <img src="${img}" alt="Carrusel ${index + 1}">
+            <button class="delete-img" onclick="eliminarImagenCarrusel(${index})">✕</button>
         </div>
     `).join('');
 }
 
-// Guardar pizza (crear o actualizar)
-async function guardarPizza(event) {
-    event.preventDefault();
+function updateStats() {
+    const totalPizzas = pizzas.length;
+    const totalStock = pizzas.reduce((sum, p) => sum + p.stock, 0);
+    const carruselCount = carouselImages.length;
+    
+    document.getElementById('totalPizzas').textContent = totalPizzas;
+    document.getElementById('totalStock').textContent = totalStock;
+    document.getElementById('carruselCount').textContent = carruselCount;
+}
 
-    const id = document.getElementById('pizza-id').value;
+function guardarPizza(event) {
+    event.preventDefault();
+    
+    const id = document.getElementById('pizzaId').value;
     const nombre = document.getElementById('nombre').value.trim();
     const descripcion = document.getElementById('descripcion').value.trim();
     const precio = parseFloat(document.getElementById('precio').value);
@@ -78,169 +113,98 @@ async function guardarPizza(event) {
         return;
     }
 
-    const pizzaData = { nombre, descripcion, precio, stock, imagen_url };
-
-    try {
-        if (id) {
-            // Actualizar pizza existente
-            const { error } = await supabaseClient
-                .from('productos')
-                .update(pizzaData)
-                .eq('id', id);
-
-            if (error) throw error;
+    if (id) {
+        // Editar pizza existente
+        const index = pizzas.findIndex(p => p.id == id);
+        if (index !== -1) {
+            pizzas[index] = { ...pizzas[index], nombre, descripcion, precio, stock, imagen_url };
             showNotification('Pizza actualizada correctamente', 'success');
-        } else {
-            // Crear nueva pizza
-            const { error } = await supabaseClient
-                .from('productos')
-                .insert([pizzaData]);
-
-            if (error) throw error;
-            showNotification('Pizza agregada correctamente', 'success');
         }
-
-        resetForm();
-        await loadPizzas();
-    } catch (error) {
-        console.error('Error guardando pizza:', error);
-        showNotification('Error al guardar la pizza', 'error');
+    } else {
+        // Crear nueva pizza
+        const newPizza = {
+            id: nextId++,
+            nombre,
+            descripcion,
+            precio,
+            stock,
+            imagen_url
+        };
+        pizzas.push(newPizza);
+        showNotification('Pizza agregada correctamente', 'success');
     }
+
+    resetForm();
+    renderAdminPizzas();
+    updateStats();
 }
 
-// Editar pizza
-window.editarPizza = async function(id) {
+window.editarPizza = function(id) {
     const pizza = pizzas.find(p => p.id === id);
     if (!pizza) return;
 
-    document.getElementById('pizza-id').value = pizza.id;
+    document.getElementById('pizzaId').value = pizza.id;
     document.getElementById('nombre').value = pizza.nombre;
     document.getElementById('descripcion').value = pizza.descripcion;
     document.getElementById('precio').value = pizza.precio;
     document.getElementById('stock').value = pizza.stock;
     document.getElementById('imagen').value = pizza.imagen_url || '';
 
-    document.getElementById('submit-btn').textContent = 'Actualizar Pizza';
-    document.getElementById('cancelar-btn').style.display = 'inline-block';
+    document.getElementById('submitBtn').innerHTML = '✏️ Actualizar Pizza';
+    document.getElementById('cancelBtn').style.display = 'inline-block';
 };
 
-// Eliminar pizza
-window.eliminarPizza = async function(id) {
+window.eliminarPizza = function(id) {
     if (!confirm('¿Estás seguro de eliminar esta pizza? Esta acción no se puede deshacer.')) return;
-
-    try {
-        const { error } = await supabaseClient
-            .from('productos')
-            .delete()
-            .eq('id', id);
-
-        if (error) throw error;
-
-        showNotification('Pizza eliminada correctamente', 'success');
-        await loadPizzas();
-    } catch (error) {
-        console.error('Error eliminando pizza:', error);
-        showNotification('Error al eliminar la pizza', 'error');
+    
+    pizzas = pizzas.filter(p => p.id !== id);
+    renderAdminPizzas();
+    updateStats();
+    showNotification('Pizza eliminada correctamente', 'success');
+    
+    // Si estábamos editando esta pizza, resetear formulario
+    if (document.getElementById('pizzaId').value == id) {
+        resetForm();
     }
 };
 
-// Cancelar edición
+function agregarImagenCarrusel(event) {
+    event.preventDefault();
+    const url = document.getElementById('carruselUrl').value.trim();
+    
+    if (!url) {
+        showNotification('Ingresa una URL de imagen válida', 'error');
+        return;
+    }
+    
+    carouselImages.push(url);
+    renderCarruselImages();
+    updateStats();
+    document.getElementById('carruselUrl').value = '';
+    showNotification('Imagen agregada al carrusel', 'success');
+}
+
+window.eliminarImagenCarrusel = function(index) {
+    if (!confirm('¿Eliminar esta imagen del carrusel?')) return;
+    carouselImages.splice(index, 1);
+    renderCarruselImages();
+    updateStats();
+    showNotification('Imagen eliminada', 'success');
+};
+
 function cancelarEdicion() {
     resetForm();
 }
 
 function resetForm() {
-    document.getElementById('pizza-form').reset();
-    document.getElementById('pizza-id').value = '';
-    document.getElementById('submit-btn').textContent = 'Agregar Pizza';
-    document.getElementById('cancelar-btn').style.display = 'none';
+    document.getElementById('pizzaForm').reset();
+    document.getElementById('pizzaId').value = '';
+    document.getElementById('submitBtn').innerHTML = '➕ Agregar Pizza';
+    document.getElementById('cancelBtn').style.display = 'none';
 }
 
-// Gestión del carrusel
-async function loadCarouselImages() {
-    try {
-        const { data, error } = await supabaseClient
-            .storage
-            .from('carrusel')
-            .list('');
-
-        if (error && error.message !== 'The resource was not found') {
-            throw error;
-        }
-
-        const container = document.getElementById('carrusel-imagenes');
-        if (!container) return;
-
-        if (!data || data.length === 0) {
-            container.innerHTML = '<p>No hay imágenes en el carrusel. Agrega algunas arriba.</p>';
-            return;
-        }
-
-        container.innerHTML = data.map(file => {
-            const url = supabaseClient.storage.from('carrusel').getPublicUrl(file.name).data.publicUrl;
-            return `
-                <div style="position: relative; width: 200px;">
-                    <img src="${url}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px;">
-                    <button onclick="eliminarImagenCarrusel('${file.name}')" 
-                            style="position: absolute; top: 5px; right: 5px; background: red; color: white; border: none; border-radius: 50%; width: 25px; height: 25px; cursor: pointer;">✕</button>
-                </div>
-            `;
-        }).join('');
-    } catch (error) {
-        console.error('Error cargando imágenes del carrusel:', error);
-    }
-}
-
-async function agregarImagenCarrusel(event) {
-    event.preventDefault();
-    const url = document.getElementById('carrusel-url').value.trim();
-
-    if (!url) {
-        showNotification('Ingresa una URL de imagen', 'error');
-        return;
-    }
-
-    try {
-        // Descargar imagen desde URL y subir a Supabase Storage
-        const response = await fetch(url);
-        const blob = await response.blob();
-        const fileName = `carrusel_${Date.now()}.jpg`;
-
-        const { error } = await supabaseClient.storage
-            .from('carrusel')
-            .upload(fileName, blob);
-
-        if (error) throw error;
-
-        showNotification('Imagen agregada al carrusel', 'success');
-        document.getElementById('carrusel-url').value = '';
-        await loadCarouselImages();
-    } catch (error) {
-        console.error('Error agregando imagen:', error);
-        showNotification('Error al agregar la imagen. Verifica la URL', 'error');
-    }
-}
-
-window.eliminarImagenCarrusel = async function(fileName) {
-    if (!confirm('¿Eliminar esta imagen del carrusel?')) return;
-
-    try {
-        const { error } = await supabaseClient.storage
-            .from('carrusel')
-            .remove([fileName]);
-
-        if (error) throw error;
-
-        showNotification('Imagen eliminada', 'success');
-        await loadCarouselImages();
-    } catch (error) {
-        console.error('Error eliminando imagen:', error);
-        showNotification('Error al eliminar la imagen', 'error');
-    }
-};
-
-// Utilidades
 function escapeHtml(text) {
+    if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
@@ -248,12 +212,8 @@ function escapeHtml(text) {
 
 function showNotification(message, type = 'success') {
     const notification = document.createElement('div');
-    notification.className = 'notification';
-    notification.style.background = type === 'error' ? '#dc3545' : '#1e6091';
-    notification.textContent = message;
+    notification.className = `notification ${type}`;
+    notification.innerHTML = `<span>${type === 'success' ? '✓' : '✗'}</span><span>${message}</span>`;
     document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.remove();
-    }, 3000);
+    setTimeout(() => notification.remove(), 3000);
 }
