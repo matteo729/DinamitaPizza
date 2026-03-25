@@ -1,4 +1,4 @@
-// admin.js - Panel de administración con Supabase
+// admin.js - Panel de administración funcional
 
 let pizzas = [];
 let carouselImages = [];
@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Verificar conexión
     const connected = await checkConnection();
     if (!connected) {
-        showNotification('Error de conexión con Supabase', 'error');
+        showNotification('Error de conexión con Supabase. Verifica tus credenciales.', 'error');
         return;
     }
     
@@ -59,7 +59,7 @@ async function loadCarouselImages() {
     }
 }
 
-// Guardar pizza
+// Guardar pizza (crear o actualizar)
 async function guardarPizza(event) {
     event.preventDefault();
     
@@ -77,7 +77,7 @@ async function guardarPizza(event) {
     
     let imagen_url = null;
     
-    // Subir imagen si se seleccionó una
+    // Subir imagen si se seleccionó una nueva
     if (imagenFile) {
         try {
             imagen_url = await uploadImage(imagenFile, 'pizzas');
@@ -122,7 +122,7 @@ async function guardarPizza(event) {
 }
 
 // Editar pizza
-window.editarPizza = async function(id) {
+window.editarPizza = function(id) {
     const pizza = pizzas.find(p => p.id === id);
     if (!pizza) return;
     
@@ -132,11 +132,14 @@ window.editarPizza = async function(id) {
     document.getElementById('precio').value = pizza.precio;
     document.getElementById('stock').value = pizza.stock;
     
+    // Mostrar preview de la imagen actual
     if (pizza.imagen_url) {
         const preview = document.getElementById('imagenPreview');
         const previewImg = document.getElementById('previewImg');
         previewImg.src = pizza.imagen_url;
         preview.style.display = 'block';
+    } else {
+        document.getElementById('imagenPreview').style.display = 'none';
     }
     
     document.getElementById('imagenFile').value = '';
@@ -150,7 +153,15 @@ window.editarPizza = async function(id) {
 window.eliminarPizza = async function(id) {
     if (!confirm('¿Estás seguro de eliminar esta pizza? Esta acción no se puede deshacer.')) return;
     
+    const pizza = pizzas.find(p => p.id === id);
+    
     try {
+        // Eliminar imagen del storage si existe
+        if (pizza && pizza.imagen_url && pizza.imagen_url.includes('supabase')) {
+            await deleteImage(pizza.imagen_url);
+        }
+        
+        // Eliminar de la base de datos
         const { error } = await supabaseClient
             .from('productos')
             .delete()
@@ -183,6 +194,7 @@ async function agregarImagenCarrusel(event) {
     try {
         const imagen_url = await uploadImage(file, 'carrusel');
         
+        // Obtener el orden máximo actual
         const maxOrden = carouselImages.length > 0 
             ? Math.max(...carouselImages.map(img => img.orden || 0)) 
             : 0;
@@ -203,10 +215,18 @@ async function agregarImagenCarrusel(event) {
 }
 
 // Eliminar imagen del carrusel
-window.eliminarImagenCarrusel = async function(id, index) {
+window.eliminarImagenCarrusel = async function(id) {
     if (!confirm('¿Eliminar esta imagen del carrusel?')) return;
     
+    const imagen = carouselImages.find(img => img.id === id);
+    
     try {
+        // Eliminar imagen del storage
+        if (imagen && imagen.imagen_url && imagen.imagen_url.includes('supabase')) {
+            await deleteImage(imagen.imagen_url);
+        }
+        
+        // Eliminar de la base de datos
         const { error } = await supabaseClient
             .from('carrusel')
             .delete()
@@ -228,7 +248,7 @@ function renderAdminPizzas() {
     if (!tbody) return;
     
     if (pizzas.length === 0) {
-        tbody.innerHTML = ' hilab<td colspan="6" style="text-align: center;">No hay pizzas registradas</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No hay pizzas registradas</td></tr>';
         return;
     }
     
