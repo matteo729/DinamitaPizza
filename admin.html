@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Admin - Pizzería Dinamita</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">Pizzería <span>Dinamita</span> | Admin</div>
+            <div class="nav-links">
+                <a href="index.html">Ver tienda</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container">
+        <h1>Panel de Administración</h1>
+        
+        <!-- Formulario para agregar/editar pizzas -->
+        <div class="admin-panel">
+            <h2>📝 Gestión de Pizzas</h2>
+            <form id="pizza-form">
+                <input type="hidden" id="pizza-id">
+                <div class="form-group">
+                    <label for="nombre">Nombre de la pizza</label>
+                    <input type="text" id="nombre" required>
+                </div>
+                <div class="form-group">
+                    <label for="descripcion">Descripción</label>
+                    <textarea id="descripcion" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="precio">Precio ($)</label>
+                    <input type="number" id="precio" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="stock">Stock</label>
+                    <input type="number" id="stock" required>
+                </div>
+                <div class="form-group">
+                    <label for="imagen">URL de imagen</label>
+                    <input type="text" id="imagen" placeholder="https://ejemplo.com/pizza.jpg">
+                </div>
+                <button type="submit" class="btn btn-primary" id="submit-btn">Agregar Pizza</button>
+                <button type="button" class="btn btn-secondary" id="cancelar-btn" style="display: none;">Cancelar</button>
+            </form>
+        </div>
+
+        <!-- Listado de pizzas para editar/eliminar -->
+        <div class="admin-panel">
+            <h2>🍕 Listado de Pizzas</h2>
+            <div id="admin-pizzas-list">
+                <!-- Se cargarán dinámicamente -->
+            </div>
+        </div>
+
+        <!-- Gestión del carrusel -->
+        <div class="admin-panel">
+            <h2>🖼️ Gestión del Carrusel</h2>
+            <form id="carrusel-form">
+                <div class="form-group">
+                    <label for="carrusel-url">URL de imagen para el carrusel</label>
+                    <input type="text" id="carrusel-url" placeholder="https://ejemplo.com/imagen.jpg">
+                </div>
+                <button type="submit" class="btn btn-primary">Agregar imagen al carrusel</button>
+            </form>
+            
+            <h3 style="margin-top: 2rem;">Imágenes actuales del carrusel</h3>
+            <div id="carrusel-imagenes" style="display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem;">
+                <!-- Se cargarán las imágenes existentes -->
+            </div>
+        </div>
+    </main>
+
+    <script src="admin.js"></script>
+</body>
+</html>
