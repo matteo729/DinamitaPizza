@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Admin - Pizzería Dinamita</title>
+    <title>Panel Admin | Pizzería Dinamita</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
@@ -11,68 +14,121 @@
 <body>
     <header>
         <nav>
-            <div class="logo">Pizzería <span>Dinamita</span> | Admin</div>
+            <div class="logo">
+                🍕 Pizzería <span>Dinamita</span> | Admin
+            </div>
             <div class="nav-links">
-                <a href="index.html">Ver tienda</a>
+                <a href="index.html" class="btn-admin-outline" style="padding: 0.5rem 1rem; border-radius: 30px;">← Ver tienda</a>
             </div>
         </nav>
     </header>
 
-    <main class="container">
-        <h1>Panel de Administración</h1>
-        
-        <!-- Formulario para agregar/editar pizzas -->
-        <div class="admin-panel">
-            <h2>📝 Gestión de Pizzas</h2>
-            <form id="pizza-form">
-                <input type="hidden" id="pizza-id">
-                <div class="form-group">
-                    <label for="nombre">Nombre de la pizza</label>
-                    <input type="text" id="nombre" required>
-                </div>
-                <div class="form-group">
-                    <label for="descripcion">Descripción</label>
-                    <textarea id="descripcion" rows="3" required></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="precio">Precio ($)</label>
-                    <input type="number" id="precio" step="0.01" required>
-                </div>
-                <div class="form-group">
-                    <label for="stock">Stock</label>
-                    <input type="number" id="stock" required>
-                </div>
-                <div class="form-group">
-                    <label for="imagen">URL de imagen</label>
-                    <input type="text" id="imagen" placeholder="https://ejemplo.com/pizza.jpg">
-                </div>
-                <button type="submit" class="btn btn-primary" id="submit-btn">Agregar Pizza</button>
-                <button type="button" class="btn btn-secondary" id="cancelar-btn" style="display: none;">Cancelar</button>
-            </form>
+    <main class="admin-container">
+        <div class="admin-header">
+            <h1>Panel de Administración</h1>
+            <p>Gestiona tu catálogo de pizzas y el carrusel de imágenes</p>
         </div>
 
-        <!-- Listado de pizzas para editar/eliminar -->
-        <div class="admin-panel">
-            <h2>🍕 Listado de Pizzas</h2>
-            <div id="admin-pizzas-list">
-                <!-- Se cargarán dinámicamente -->
+        <!-- Estadísticas -->
+        <div class="admin-stats" id="adminStats">
+            <div class="stat-card">
+                <h3 id="totalPizzas">0</h3>
+                <p>Pizzas disponibles</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="totalStock">0</h3>
+                <p>Unidades en stock</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="carruselCount">0</h3>
+                <p>Imágenes carrusel</p>
+            </div>
+        </div>
+
+        <!-- Formulario de pizzas -->
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2>📝 Agregar / Editar Pizza</h2>
+            </div>
+            <div class="admin-card-body">
+                <form id="pizzaForm" class="admin-form">
+                    <input type="hidden" id="pizzaId">
+                    <div class="admin-form-group">
+                        <label>Nombre de la pizza *</label>
+                        <input type="text" id="nombre" placeholder="Ej: Pizza Margherita" required>
+                    </div>
+                    <div class="admin-form-group">
+                        <label>Precio ($) *</label>
+                        <input type="number" id="precio" step="0.01" placeholder="Ej: 12.99" required>
+                    </div>
+                    <div class="admin-form-group">
+                        <label>Stock *</label>
+                        <input type="number" id="stock" placeholder="Ej: 10" required>
+                    </div>
+                    <div class="admin-form-group">
+                        <label>URL de imagen</label>
+                        <input type="text" id="imagen" placeholder="https://ejemplo.com/pizza.jpg">
+                    </div>
+                    <div class="admin-form-group form-group-full">
+                        <label>Descripción *</label>
+                        <textarea id="descripcion" rows="3" placeholder="Describe los ingredientes y características de la pizza..." required></textarea>
+                    </div>
+                    <div class="admin-form-group form-group-full" style="display: flex; gap: 1rem; flex-direction: row;">
+                        <button type="submit" class="btn-admin btn-admin-primary" id="submitBtn">➕ Agregar Pizza</button>
+                        <button type="button" class="btn-admin btn-admin-outline" id="cancelBtn" style="display: none;">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Listado de pizzas -->
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2>🍕 Catálogo de Pizzas</h2>
+            </div>
+            <div class="admin-card-body">
+                <div class="admin-table">
+                    <table id="pizzasTable">
+                        <thead>
+                            <tr>
+                                <th>Imagen</th>
+                                <th>Nombre</th>
+                                <th>Descripción</th>
+                                <th>Precio</th>
+                                <th>Stock</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pizzasTableBody">
+                            <tr>
+                                <td colspan="6" style="text-align: center;">Cargando pizzas...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
         <!-- Gestión del carrusel -->
-        <div class="admin-panel">
-            <h2>🖼️ Gestión del Carrusel</h2>
-            <form id="carrusel-form">
-                <div class="form-group">
-                    <label for="carrusel-url">URL de imagen para el carrusel</label>
-                    <input type="text" id="carrusel-url" placeholder="https://ejemplo.com/imagen.jpg">
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h2>🖼️ Gestión del Carrusel</h2>
+            </div>
+            <div class="admin-card-body">
+                <form id="carruselForm" class="admin-form" style="margin-bottom: 2rem;">
+                    <div class="admin-form-group form-group-full">
+                        <label>Agregar imagen al carrusel</label>
+                        <input type="text" id="carruselUrl" placeholder="https://ejemplo.com/imagen-carrusel.jpg">
+                    </div>
+                    <div>
+                        <button type="submit" class="btn-admin btn-admin-secondary">➕ Agregar imagen</button>
+                    </div>
+                </form>
+                
+                <h3 style="margin-bottom: 1rem; font-size: 1rem;">Imágenes actuales</h3>
+                <div id="carruselGrid" class="carrusel-grid">
+                    <p>Cargando imágenes...</p>
                 </div>
-                <button type="submit" class="btn btn-primary">Agregar imagen al carrusel</button>
-            </form>
-            
-            <h3 style="margin-top: 2rem;">Imágenes actuales del carrusel</h3>
-            <div id="carrusel-imagenes" style="display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem;">
-                <!-- Se cargarán las imágenes existentes -->
             </div>
         </div>
     </main>
