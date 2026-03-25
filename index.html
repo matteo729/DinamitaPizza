@@ -2,24 +2,24 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pizzería Dinamita | La mejor pizza artesanal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
 </head>
 <body>
-    <!-- LOADING SCREEN PROFESIONAL -->
+    <!-- LOADING SCREEN -->
     <div id="loadingScreen" class="loading-screen">
         <div class="loading-content">
             <div class="loading-logo">
                 🍕 Pizzería <span>Dinamita</span>
             </div>
             <div class="loading-spinner"></div>
-            <div class="loading-text">Cargando experiencia gastronómica</div>
+            <div class="loading-text">Preparando la mejor experiencia</div>
             <div class="loading-progress">
                 <div class="loading-progress-bar" id="loadingProgress"></div>
             </div>
@@ -33,7 +33,6 @@
             </div>
             <div class="nav-links">
                 <a href="#pizzas">Nuestras Pizzas</a>
-                <a href="admin.html">Admin</a>
                 <div class="cart-icon" id="cartToggle">
                     🛒
                     <span class="cart-count" id="cartCount">0</span>
@@ -43,12 +42,10 @@
     </header>
 
     <main>
-        <!-- CARRUSEL MEJORADO -->
+        <!-- CARRUSEL -->
         <div class="carousel-wrapper">
-            <div class="carousel-container" id="carouselContainer">
-                <div class="carousel-slides" id="carouselSlides">
-                    <!-- Las imágenes se cargarán dinámicamente -->
-                </div>
+            <div class="carousel-container">
+                <div class="carousel-slides" id="carouselSlides"></div>
                 <div class="carousel-dots" id="carouselDots"></div>
             </div>
         </div>
@@ -57,7 +54,7 @@
         <div class="container">
             <div class="section-header" id="pizzas">
                 <h2>🔥 Nuestras Especialidades</h2>
-                <p>Ingredientes frescos, masa artesanal y el sabor que te hará explotar de felicidad</p>
+                <p>Ingredientes frescos, masa artesanal y el sabor que te hará volver</p>
             </div>
             
             <div id="pizzasContainer" class="pizzas-grid">
@@ -74,7 +71,9 @@
             <button class="close-cart" id="closeCart">✕</button>
         </div>
         <div id="cartItems" class="cart-items">
-            <!-- Items del carrito -->
+            <div style="text-align: center; padding: 2rem;">
+                <p>Tu carrito está vacío</p>
+            </div>
         </div>
         <div class="cart-footer">
             <div class="cart-total">
