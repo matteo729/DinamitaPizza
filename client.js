@@ -1,10 +1,39 @@
-// client.js - Lógica principal del cliente
+// client.js - Página del cliente con datos sincronizados
 
 let pizzas = [];
 let carrito = [];
 let carouselImages = [];
 let currentSlide = 0;
 let carouselInterval;
+
+// Misma clave que en admin
+const STORAGE_PIZZAS = 'pizzeria_dinamita_pizzas';
+const STORAGE_CARRUSEL = 'pizzeria_dinamita_carrusel';
+
+// Datos por defecto (mismos que en admin)
+const DEFAULT_PIZZAS = [
+    {
+        id: 1,
+        nombre: 'Pizza Margherita',
+        descripcion: 'Salsa de tomate, mozzarella fresca, albahaca y aceite de oliva',
+        precio: 12.99,
+        stock: 10,
+        imagen_url: 'https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?w=400'
+    },
+    {
+        id: 2,
+        nombre: 'Pizza Pepperoni',
+        descripcion: 'Salsa de tomate, mozzarella y pepperoni italiano',
+        precio: 14.99,
+        stock: 15,
+        imagen_url: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?w=400'
+    }
+];
+
+const DEFAULT_CARRUSEL = [
+    'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1400',
+    'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=1400'
+];
 
 // ==================== LOADING SCREEN ====================
 async function initLoadingScreen() {
@@ -22,59 +51,65 @@ async function initLoadingScreen() {
                 loadingScreen.classList.add('hide');
                 setTimeout(() => {
                     loadingScreen.style.display = 'none';
-                    document.body.style.animation = 'fadeIn 0.5s ease';
                 }, 600);
             }, 400);
         }
         progressBar.style.width = `${Math.min(progress, 100)}%`;
     }, 100);
     
-    await Promise.all([
-        loadCarouselImages(),
-        loadPizzas()
-    ]);
+    // Cargar datos desde localStorage
+    loadDataFromStorage();
+    
+    // Escuchar cambios en localStorage (para sincronizar entre pestañas)
+    window.addEventListener('storage', (e) => {
+        if (e.key === STORAGE_PIZZAS || e.key === STORAGE_CARRUSEL || e.key === 'pizzeria_update') {
+            loadDataFromStorage();
+        }
+    });
+}
+
+// Cargar datos desde localStorage
+function loadDataFromStorage() {
+    // Cargar pizzas
+    const savedPizzas = localStorage.getItem(STORAGE_PIZZAS);
+    if (savedPizzas) {
+        pizzas = JSON.parse(savedPizzas);
+    } else {
+        pizzas = JSON.parse(JSON.stringify(DEFAULT_PIZZAS));
+        localStorage.setItem(STORAGE_PIZZAS, JSON.stringify(pizzas));
+    }
+    
+    // Cargar carrusel
+    const savedCarrusel = localStorage.getItem(STORAGE_CARRUSEL);
+    if (savedCarrusel) {
+        carouselImages = JSON.parse(savedCarrusel);
+    } else {
+        carouselImages = [...DEFAULT_CARRUSEL];
+        localStorage.setItem(STORAGE_CARRUSEL, JSON.stringify(carouselImages));
+    }
+    
+    // Renderizar
+    renderPizzas();
+    initCarousel();
+    initScrollReveal();
 }
 
 // ==================== CARRUSEL ====================
-async function loadCarouselImages() {
-    try {
-        const { data, error } = await supabaseClient
-            .storage
-            .from('carrusel')
-            .list('');
-            
-        if (error || !data || data.length === 0) {
-            carouselImages = [
-                { url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1400', title: 'Pizza Artesanal', description: 'Masa madre y ingredientes frescos' },
-                { url: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=1400', title: 'Sabor Único', description: 'Receta especial de la casa' },
-                { url: 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=1400', title: 'Momento Perfecto', description: 'Comparte con familia y amigos' }
-            ];
-        } else {
-            carouselImages = data.map(file => ({
-                url: supabaseClient.storage.from('carrusel').getPublicUrl(file.name).data.publicUrl,
-                title: 'Pizza Especial',
-                description: 'Deliciosa pizza artesanal'
-            }));
-        }
-        initCarousel();
-    } catch (error) {
-        console.error('Error cargando carrusel:', error);
-        carouselImages = [{ url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1400', title: 'Pizzería Dinamita', description: 'La mejor pizza de la ciudad' }];
-        initCarousel();
-    }
-}
-
 function initCarousel() {
     const slidesContainer = document.getElementById('carouselSlides');
     const dotsContainer = document.getElementById('carouselDots');
     
     if (!slidesContainer) return;
     
+    if (carouselImages.length === 0) {
+        carouselImages = DEFAULT_CARRUSEL;
+    }
+    
     slidesContainer.innerHTML = carouselImages.map((img, index) => `
-        <div class="carousel-slide ${index === 0 ? 'active' : ''}" style="background-image: url('${img.url}')">
+        <div class="carousel-slide ${index === 0 ? 'active' : ''}" style="background-image: url('${img}')">
             <div class="carousel-caption">
-                <h2>${img.title}</h2>
-                <p>${img.description}</p>
+                <h2>Pizzería Dinamita</h2>
+                <p>La mejor pizza artesanal</p>
             </div>
         </div>
     `).join('');
@@ -116,74 +151,20 @@ function resetCarouselInterval() {
 }
 
 // ==================== PIZZAS ====================
-async function loadPizzas() {
-    try {
-        const { data, error } = await supabaseClient
-            .from('productos')
-            .select('*')
-            .gte('stock', 1)
-            .order('nombre');
-
-        if (error) throw error;
-        pizzas = data;
-        renderPizzas();
-        initScrollReveal();
-    } catch (error) {
-        console.error('Error cargando pizzas:', error);
-        showNotification('Error al cargar las pizzas', 'error');
-    }
-}
-
 function renderPizzas() {
     const container = document.getElementById('pizzasContainer');
     if (!container) return;
-
-    if (pizzas.length === 0) {
+    
+    // Filtrar solo pizzas con stock > 0
+    const pizzasDisponibles = pizzas.filter(p => p.stock > 0);
+    
+    if (pizzasDisponibles.length === 0) {
         container.innerHTML = '<div style="text-align: center; grid-column: 1/-1; padding: 3rem;"><p>No hay pizzas disponibles en este momento.</p></div>';
         return;
     }
-
-    container.innerHTML = pizzas.map(pizza => `
-        <div class="pizza-card scroll-reveal" data-id="${pizza.id}">
-            <div class="pizza-img-container">
-                <img src="${pizza.imagen_url || 'https://via.placeholder.com/400x300?text=Pizza'}" alt="${escapeHtml(pizza.nombre)}" class="pizza-img" onerror="this.src='https://via.placeholder.com/400x300?text=Pizza'">
-                <div class="pizza-badge">🔥 Popular</div>
-            </div>
-            <div class="pizza-info">
-                <h3 class="pizza-nombre">${escapeHtml(pizza.nombre)}</h3>
-                <p class="pizza-descripcion">${escapeHtml(pizza.descripcion)}</p>
-                <div class="pizza-footer">
-                    <div>
-                        <div class="pizza-precio">$${pizza.precio.toFixed(2)}</div>
-                        <div class="pizza-stock">🍕 ${pizza.stock} disponibles</div>
-                    </div>
-                    <button class="btn-add" onclick="agregarAlCarrito(${pizza.id})">Agregar +</button>
-                </div>
-            </div>
-        </div>
-    `).join('');
-}
-
-// client.js - Añadir esta función para mostrar imágenes base64 correctamente
-
-function renderPizzas() {
-    const container = document.getElementById('pizzasContainer');
-    if (!container) return;
-
-    if (pizzas.length === 0) {
-        container.innerHTML = '<div style="text-align: center; grid-column: 1/-1; padding: 3rem;"><p>No hay pizzas disponibles en este momento.</p></div>';
-        return;
-    }
-
-    container.innerHTML = pizzas.map(pizza => {
-        // Determinar la fuente de la imagen
-        let imgSrc = pizza.imagen_url || 'https://via.placeholder.com/400x300?text=Pizza';
-        
-        // Si es base64, usarlo directamente
-        if (pizza.imagen_data && pizza.imagen_data.startsWith('data:image')) {
-            imgSrc = pizza.imagen_data;
-        }
-        
+    
+    container.innerHTML = pizzasDisponibles.map(pizza => {
+        let imgSrc = pizza.imagen_data || pizza.imagen_url || 'https://via.placeholder.com/400x300?text=Pizza';
         return `
         <div class="pizza-card scroll-reveal" data-id="${pizza.id}">
             <div class="pizza-img-container">
@@ -209,16 +190,17 @@ function renderPizzas() {
         </div>
     `}).join('');
 }
+
 // ==================== CARRITO ====================
 function agregarAlCarrito(pizzaId) {
     const pizza = pizzas.find(p => p.id === pizzaId);
     if (!pizza) return;
-
+    
     if (pizza.stock <= 0) {
         showNotification('No hay stock disponible', 'error');
         return;
     }
-
+    
     const existingItem = carrito.find(item => item.id === pizzaId);
     if (existingItem) {
         if (existingItem.cantidad < pizza.stock) {
@@ -229,10 +211,10 @@ function agregarAlCarrito(pizzaId) {
             return;
         }
     } else {
-        carrito.push({ id: pizza.id, nombre: pizza.nombre, precio: pizza.precio, cantidad: 1, maxStock: pizza.stock });
+        carrito.push({ id: pizza.id, nombre: pizza.nombre, precio: pizza.precio, cantidad: 1 });
         showNotification(`${pizza.nombre} agregada al carrito`, 'success');
     }
-
+    
     saveCarritoToLocalStorage();
     updateCarritoUI();
     animateCartIcon();
@@ -242,20 +224,20 @@ function updateCarritoUI() {
     const cartItems = document.getElementById('cartItems');
     const cartCount = document.getElementById('cartCount');
     const cartTotal = document.getElementById('cartTotal');
-
+    
     if (!cartItems) return;
-
+    
     if (carrito.length === 0) {
         cartItems.innerHTML = '<div style="text-align: center; padding: 2rem;"><p>Tu carrito está vacío</p><small>¡Agrega algunas pizzas!</small></div>';
         if (cartTotal) cartTotal.textContent = '0';
         if (cartCount) cartCount.textContent = '0';
         return;
     }
-
+    
     const total = carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
     if (cartTotal) cartTotal.textContent = total.toFixed(2);
     if (cartCount) cartCount.textContent = carrito.reduce((sum, item) => sum + item.cantidad, 0);
-
+    
     cartItems.innerHTML = carrito.map(item => `
         <div class="cart-item">
             <div class="cart-item-info">
@@ -275,10 +257,10 @@ function updateCarritoUI() {
 function modificarCantidad(pizzaId, cambio) {
     const item = carrito.find(i => i.id === pizzaId);
     if (!item) return;
-
+    
     const nuevaCantidad = item.cantidad + cambio;
     const pizza = pizzas.find(p => p.id === pizzaId);
-
+    
     if (nuevaCantidad <= 0) {
         eliminarDelCarrito(pizzaId);
     } else if (pizza && nuevaCantidad <= pizza.stock) {
@@ -301,13 +283,13 @@ function ordenarPorWhatsApp() {
         showNotification('Agrega pizzas al carrito primero', 'error');
         return;
     }
-
+    
     let mensaje = "🍕 *PEDIDO PIZZERÍA DINAMITA* 🍕\n\n";
     mensaje += "*Detalle del pedido:*\n";
     carrito.forEach(item => mensaje += `• ${item.cantidad}x ${item.nombre} - $${(item.precio * item.cantidad).toFixed(2)}\n`);
     const total = carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
     mensaje += `\n*Total:* $${total.toFixed(2)}\n\n_¡Gracias por tu pedido!_`;
-
+    
     const telefono = "5491123456789";
     window.open(`https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`, '_blank');
 }
@@ -363,9 +345,16 @@ function showNotification(message, type = 'success') {
     setTimeout(() => notification.remove(), 3000);
 }
 
-function saveCarritoToLocalStorage() { localStorage.setItem('carrito', JSON.stringify(carrito)); }
-function loadCarritoFromLocalStorage() { const saved = localStorage.getItem('carrito'); if (saved) carrito = JSON.parse(saved); }
+function saveCarritoToLocalStorage() { 
+    localStorage.setItem('pizzeria_carrito', JSON.stringify(carrito)); 
+}
 
+function loadCarritoFromLocalStorage() { 
+    const saved = localStorage.getItem('pizzeria_carrito'); 
+    if (saved) carrito = JSON.parse(saved); 
+}
+
+// Exportar funciones globales
 window.agregarAlCarrito = agregarAlCarrito;
 window.modificarCantidad = modificarCantidad;
 window.eliminarDelCarrito = eliminarDelCarrito;
