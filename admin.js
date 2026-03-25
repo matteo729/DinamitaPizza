@@ -1,113 +1,61 @@
-// admin.js - Panel de administración con almacenamiento compartido
+// admin.js - Panel de administración con Supabase
 
 let pizzas = [];
 let carouselImages = [];
-let editingId = null;
 
-// Clave única para almacenamiento compartido
-const STORAGE_PIZZAS = 'pizzeria_dinamita_pizzas';
-const STORAGE_CARRUSEL = 'pizzeria_dinamita_carrusel';
-
-// Datos iniciales por defecto
-const DEFAULT_PIZZAS = [
-    {
-        id: 1,
-        nombre: 'Pizza Margherita',
-        descripcion: 'Salsa de tomate, mozzarella fresca, albahaca y aceite de oliva',
-        precio: 12.99,
-        stock: 10,
-        imagen_url: 'https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?w=400',
-        imagen_data: null
-    },
-    {
-        id: 2,
-        nombre: 'Pizza Pepperoni',
-        descripcion: 'Salsa de tomate, mozzarella y pepperoni italiano',
-        precio: 14.99,
-        stock: 15,
-        imagen_url: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?w=400',
-        imagen_data: null
-    },
-    {
-        id: 3,
-        nombre: 'Pizza Cuatro Quesos',
-        descripcion: 'Mozzarella, gorgonzola, parmesano y queso de cabra',
-        precio: 16.99,
-        stock: 8,
-        imagen_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400',
-        imagen_data: null
-    }
-];
-
-const DEFAULT_CARRUSEL = [
-    'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1400',
-    'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=1400',
-    'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=1400'
-];
-
-// Inicialización
 document.addEventListener('DOMContentLoaded', async () => {
-    loadPizzas();
-    loadCarouselImages();
+    // Verificar conexión
+    const connected = await checkConnection();
+    if (!connected) {
+        showNotification('Error de conexión con Supabase', 'error');
+        return;
+    }
+    
+    await loadPizzas();
+    await loadCarouselImages();
     
     // Event listeners
     document.getElementById('pizzaForm')?.addEventListener('submit', guardarPizza);
     document.getElementById('cancelBtn')?.addEventListener('click', cancelarEdicion);
     document.getElementById('carruselForm')?.addEventListener('submit', agregarImagenCarrusel);
-    
-    // Preview de imagen
     document.getElementById('imagenFile')?.addEventListener('change', previewImage);
 });
 
-// Cargar pizzas desde localStorage
-function loadPizzas() {
-    const saved = localStorage.getItem(STORAGE_PIZZAS);
-    if (saved) {
-        pizzas = JSON.parse(saved);
-    } else {
-        // Si no hay datos, usar los de ejemplo
-        pizzas = JSON.parse(JSON.stringify(DEFAULT_PIZZAS));
-        savePizzas();
+// Cargar pizzas desde Supabase
+async function loadPizzas() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('productos')
+            .select('*')
+            .order('nombre');
+            
+        if (error) throw error;
+        
+        pizzas = data || [];
+        renderAdminPizzas();
+        updateStats();
+    } catch (error) {
+        console.error('Error cargando pizzas:', error);
+        showNotification('Error al cargar las pizzas', 'error');
     }
-    renderAdminPizzas();
-    updateStats();
 }
 
-// Guardar pizzas en localStorage
-function savePizzas() {
-    localStorage.setItem(STORAGE_PIZZAS, JSON.stringify(pizzas));
-}
-
-// Cargar imágenes del carrusel desde localStorage
-function loadCarouselImages() {
-    const saved = localStorage.getItem(STORAGE_CARRUSEL);
-    if (saved) {
-        carouselImages = JSON.parse(saved);
-    } else {
-        carouselImages = [...DEFAULT_CARRUSEL];
-        saveCarouselImages();
-    }
-    renderCarruselImages();
-    updateStats();
-}
-
-// Guardar imágenes del carrusel
-function saveCarouselImages() {
-    localStorage.setItem(STORAGE_CARRUSEL, JSON.stringify(carouselImages));
-}
-
-// Preview de imagen
-function previewImage(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const preview = document.getElementById('imagenPreview');
-            const previewImg = document.getElementById('previewImg');
-            previewImg.src = e.target.result;
-            preview.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
+// Cargar imágenes del carrusel desde Supabase
+async function loadCarouselImages() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('carrusel')
+            .select('*')
+            .order('orden');
+            
+        if (error) throw error;
+        
+        carouselImages = data || [];
+        renderCarruselImages();
+        updateStats();
+    } catch (error) {
+        console.error('Error cargando carrusel:', error);
+        showNotification('Error al cargar el carrusel', 'error');
     }
 }
 
@@ -128,91 +76,151 @@ async function guardarPizza(event) {
     }
     
     let imagen_url = null;
-    let imagen_data = null;
     
+    // Subir imagen si se seleccionó una
     if (imagenFile) {
-        const result = await processImage(imagenFile);
-        if (result) {
-            imagen_data = result;
-            imagen_url = result;
+        try {
+            imagen_url = await uploadImage(imagenFile, 'pizzas');
+        } catch (error) {
+            showNotification('Error al subir la imagen', 'error');
+            return;
         }
-    } else if (id) {
-        const existingPizza = pizzas.find(p => p.id == id);
-        imagen_url = existingPizza?.imagen_url;
-        imagen_data = existingPizza?.imagen_data;
     }
     
-    if (id) {
-        // Actualizar
-        const index = pizzas.findIndex(p => p.id == id);
-        if (index !== -1) {
-            pizzas[index] = { 
-                ...pizzas[index], 
-                nombre, 
-                descripcion, 
-                precio, 
-                stock,
-                imagen_url: imagen_url || pizzas[index].imagen_url,
-                imagen_data: imagen_data || pizzas[index].imagen_data
-            };
+    try {
+        if (id) {
+            // Actualizar pizza existente
+            const updateData = { nombre, descripcion, precio, stock };
+            if (imagen_url) updateData.imagen_url = imagen_url;
+            
+            const { error } = await supabaseClient
+                .from('productos')
+                .update(updateData)
+                .eq('id', id);
+                
+            if (error) throw error;
             showNotification('Pizza actualizada correctamente', 'success');
+        } else {
+            // Crear nueva pizza
+            const newPizza = { nombre, descripcion, precio, stock };
+            if (imagen_url) newPizza.imagen_url = imagen_url;
+            
+            const { error } = await supabaseClient
+                .from('productos')
+                .insert([newPizza]);
+                
+            if (error) throw error;
+            showNotification('Pizza agregada correctamente', 'success');
         }
-    } else {
-        // Crear nueva
-        const newId = pizzas.length > 0 ? Math.max(...pizzas.map(p => p.id)) + 1 : 1;
-        const newPizza = {
-            id: newId,
-            nombre,
-            descripcion,
-            precio,
-            stock,
-            imagen_url: imagen_url || null,
-            imagen_data: imagen_data || null
-        };
-        pizzas.push(newPizza);
-        showNotification('Pizza agregada correctamente', 'success');
+        
+        resetForm();
+        await loadPizzas();
+    } catch (error) {
+        console.error('Error guardando pizza:', error);
+        showNotification('Error al guardar la pizza', 'error');
     }
-    
-    savePizzas();
-    resetForm();
-    renderAdminPizzas();
-    updateStats();
-    
-    // Forzar actualización de la página del cliente si está abierta en otra pestaña
-    localStorage.setItem('pizzeria_update', Date.now().toString());
 }
 
-// Procesar imagen a base64
-function processImage(file) {
-    return new Promise((resolve) => {
-        if (!file) {
-            resolve(null);
-            return;
-        }
+// Editar pizza
+window.editarPizza = async function(id) {
+    const pizza = pizzas.find(p => p.id === id);
+    if (!pizza) return;
+    
+    document.getElementById('pizzaId').value = pizza.id;
+    document.getElementById('nombre').value = pizza.nombre;
+    document.getElementById('descripcion').value = pizza.descripcion;
+    document.getElementById('precio').value = pizza.precio;
+    document.getElementById('stock').value = pizza.stock;
+    
+    if (pizza.imagen_url) {
+        const preview = document.getElementById('imagenPreview');
+        const previewImg = document.getElementById('previewImg');
+        previewImg.src = pizza.imagen_url;
+        preview.style.display = 'block';
+    }
+    
+    document.getElementById('imagenFile').value = '';
+    document.getElementById('submitBtn').innerHTML = '✏️ Actualizar Pizza';
+    document.getElementById('cancelBtn').style.display = 'inline-block';
+    
+    document.querySelector('.admin-card').scrollIntoView({ behavior: 'smooth' });
+};
+
+// Eliminar pizza
+window.eliminarPizza = async function(id) {
+    if (!confirm('¿Estás seguro de eliminar esta pizza? Esta acción no se puede deshacer.')) return;
+    
+    try {
+        const { error } = await supabaseClient
+            .from('productos')
+            .delete()
+            .eq('id', id);
+            
+        if (error) throw error;
         
-        if (file.size > 2 * 1024 * 1024) {
-            showNotification('La imagen no puede exceder 2MB', 'error');
-            resolve(null);
-            return;
-        }
+        showNotification('Pizza eliminada correctamente', 'success');
+        await loadPizzas();
         
-        if (!file.type.startsWith('image/')) {
-            showNotification('El archivo debe ser una imagen', 'error');
-            resolve(null);
-            return;
+        if (document.getElementById('pizzaId').value == id) {
+            resetForm();
         }
+    } catch (error) {
+        console.error('Error eliminando pizza:', error);
+        showNotification('Error al eliminar la pizza', 'error');
+    }
+};
+
+// Agregar imagen al carrusel
+async function agregarImagenCarrusel(event) {
+    event.preventDefault();
+    const file = document.getElementById('carruselFile').files[0];
+    
+    if (!file) {
+        showNotification('Selecciona una imagen para subir', 'error');
+        return;
+    }
+    
+    try {
+        const imagen_url = await uploadImage(file, 'carrusel');
         
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            resolve(e.target.result);
-        };
-        reader.onerror = function() {
-            showNotification('Error al leer la imagen', 'error');
-            resolve(null);
-        };
-        reader.readAsDataURL(file);
-    });
+        const maxOrden = carouselImages.length > 0 
+            ? Math.max(...carouselImages.map(img => img.orden || 0)) 
+            : 0;
+            
+        const { error } = await supabaseClient
+            .from('carrusel')
+            .insert([{ imagen_url, orden: maxOrden + 1 }]);
+            
+        if (error) throw error;
+        
+        showNotification('Imagen agregada al carrusel', 'success');
+        document.getElementById('carruselFile').value = '';
+        await loadCarouselImages();
+    } catch (error) {
+        console.error('Error agregando imagen:', error);
+        showNotification('Error al agregar la imagen', 'error');
+    }
 }
+
+// Eliminar imagen del carrusel
+window.eliminarImagenCarrusel = async function(id, index) {
+    if (!confirm('¿Eliminar esta imagen del carrusel?')) return;
+    
+    try {
+        const { error } = await supabaseClient
+            .from('carrusel')
+            .delete()
+            .eq('id', id);
+            
+        if (error) throw error;
+        
+        showNotification('Imagen eliminada', 'success');
+        await loadCarouselImages();
+    } catch (error) {
+        console.error('Error eliminando imagen:', error);
+        showNotification('Error al eliminar la imagen', 'error');
+    }
+};
 
 // Renderizar tabla de pizzas
 function renderAdminPizzas() {
@@ -220,16 +228,14 @@ function renderAdminPizzas() {
     if (!tbody) return;
     
     if (pizzas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No hay pizzas registradas</td></tr>';
+        tbody.innerHTML = ' hilab<td colspan="6" style="text-align: center;">No hay pizzas registradas</td></tr>';
         return;
     }
     
-    tbody.innerHTML = pizzas.map(pizza => {
-        let imgSrc = pizza.imagen_data || pizza.imagen_url || 'https://via.placeholder.com/60x60?text=Pizza';
-        return `
+    tbody.innerHTML = pizzas.map(pizza => `
         <tr>
             <td>
-                <img src="${imgSrc}" 
+                <img src="${pizza.imagen_url || 'https://via.placeholder.com/60x60?text=Pizza'}" 
                      class="pizza-img-mini" 
                      onerror="this.src='https://via.placeholder.com/60x60?text=Pizza'">
             </td>
@@ -249,7 +255,7 @@ function renderAdminPizzas() {
                 </div>
             </td>
         </tr>
-    `}).join('');
+    `).join('');
 }
 
 // Renderizar imágenes del carrusel
@@ -262,10 +268,10 @@ function renderCarruselImages() {
         return;
     }
     
-    container.innerHTML = carouselImages.map((img, index) => `
+    container.innerHTML = carouselImages.map(img => `
         <div class="carrusel-item">
-            <img src="${img}" alt="Carrusel ${index + 1}">
-            <button class="delete-img" onclick="eliminarImagenCarrusel(${index})">✕</button>
+            <img src="${img.imagen_url}" alt="Carrusel">
+            <button class="delete-img" onclick="eliminarImagenCarrusel(${img.id})">✕</button>
         </div>
     `).join('');
 }
@@ -273,7 +279,7 @@ function renderCarruselImages() {
 // Actualizar estadísticas
 function updateStats() {
     const totalPizzas = pizzas.length;
-    const totalStock = pizzas.reduce((sum, p) => sum + p.stock, 0);
+    const totalStock = pizzas.reduce((sum, p) => sum + (p.stock || 0), 0);
     const carruselCount = carouselImages.length;
     
     document.getElementById('totalPizzas').textContent = totalPizzas;
@@ -281,107 +287,26 @@ function updateStats() {
     document.getElementById('carruselCount').textContent = carruselCount;
 }
 
-// Editar pizza
-window.editarPizza = function(id) {
-    const pizza = pizzas.find(p => p.id === id);
-    if (!pizza) return;
-    
-    editingId = id;
-    
-    document.getElementById('pizzaId').value = pizza.id;
-    document.getElementById('nombre').value = pizza.nombre;
-    document.getElementById('descripcion').value = pizza.descripcion;
-    document.getElementById('precio').value = pizza.precio;
-    document.getElementById('stock').value = pizza.stock;
-    
-    // Mostrar preview de la imagen actual
-    const imgSrc = pizza.imagen_data || pizza.imagen_url;
-    if (imgSrc) {
-        const preview = document.getElementById('imagenPreview');
-        const previewImg = document.getElementById('previewImg');
-        previewImg.src = imgSrc;
-        preview.style.display = 'block';
-    } else {
-        document.getElementById('imagenPreview').style.display = 'none';
+// Preview de imagen
+function previewImage(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('imagenPreview');
+            const previewImg = document.getElementById('previewImg');
+            previewImg.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
     }
-    
-    document.getElementById('imagenFile').value = '';
-    document.getElementById('submitBtn').innerHTML = '✏️ Actualizar Pizza';
-    document.getElementById('cancelBtn').style.display = 'inline-block';
-    
-    document.querySelector('.admin-card').scrollIntoView({ behavior: 'smooth' });
-};
-
-// Eliminar pizza
-window.eliminarPizza = function(id) {
-    if (!confirm('¿Estás seguro de eliminar esta pizza? Esta acción no se puede deshacer.')) return;
-    
-    pizzas = pizzas.filter(p => p.id !== id);
-    savePizzas();
-    renderAdminPizzas();
-    updateStats();
-    showNotification('Pizza eliminada correctamente', 'success');
-    
-    if (document.getElementById('pizzaId').value == id) {
-        resetForm();
-    }
-    
-    // Forzar actualización del cliente
-    localStorage.setItem('pizzeria_update', Date.now().toString());
-};
-
-// Agregar imagen al carrusel
-async function agregarImagenCarrusel(event) {
-    event.preventDefault();
-    const file = document.getElementById('carruselFile').files[0];
-    
-    if (!file) {
-        showNotification('Selecciona una imagen para subir', 'error');
-        return;
-    }
-    
-    if (file.size > 2 * 1024 * 1024) {
-        showNotification('La imagen no puede exceder 2MB', 'error');
-        return;
-    }
-    
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        carouselImages.push(e.target.result);
-        saveCarouselImages();
-        renderCarruselImages();
-        updateStats();
-        document.getElementById('carruselFile').value = '';
-        showNotification('Imagen agregada al carrusel', 'success');
-        
-        // Forzar actualización del cliente
-        localStorage.setItem('pizzeria_update', Date.now().toString());
-    };
-    reader.onerror = function() {
-        showNotification('Error al procesar la imagen', 'error');
-    };
-    reader.readAsDataURL(file);
 }
-
-// Eliminar imagen del carrusel
-window.eliminarImagenCarrusel = function(index) {
-    if (!confirm('¿Eliminar esta imagen del carrusel?')) return;
-    carouselImages.splice(index, 1);
-    saveCarouselImages();
-    renderCarruselImages();
-    updateStats();
-    showNotification('Imagen eliminada', 'success');
-    
-    // Forzar actualización del cliente
-    localStorage.setItem('pizzeria_update', Date.now().toString());
-};
 
 // Cancelar edición
 function cancelarEdicion() {
     resetForm();
 }
 
-// Resetear formulario
 function resetForm() {
     document.getElementById('pizzaForm').reset();
     document.getElementById('pizzaId').value = '';
@@ -389,10 +314,8 @@ function resetForm() {
     document.getElementById('cancelBtn').style.display = 'none';
     document.getElementById('imagenPreview').style.display = 'none';
     document.getElementById('imagenFile').value = '';
-    editingId = null;
 }
 
-// Utilidades
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
