@@ -1,39 +1,10 @@
-// client.js - Página del cliente con datos sincronizados
+// client.js - Página del cliente con Supabase
 
 let pizzas = [];
 let carrito = [];
 let carouselImages = [];
 let currentSlide = 0;
 let carouselInterval;
-
-// Misma clave que en admin
-const STORAGE_PIZZAS = 'pizzeria_dinamita_pizzas';
-const STORAGE_CARRUSEL = 'pizzeria_dinamita_carrusel';
-
-// Datos por defecto (mismos que en admin)
-const DEFAULT_PIZZAS = [
-    {
-        id: 1,
-        nombre: 'Pizza Margherita',
-        descripcion: 'Salsa de tomate, mozzarella fresca, albahaca y aceite de oliva',
-        precio: 12.99,
-        stock: 10,
-        imagen_url: 'https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?w=400'
-    },
-    {
-        id: 2,
-        nombre: 'Pizza Pepperoni',
-        descripcion: 'Salsa de tomate, mozzarella y pepperoni italiano',
-        precio: 14.99,
-        stock: 15,
-        imagen_url: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?w=400'
-    }
-];
-
-const DEFAULT_CARRUSEL = [
-    'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1400',
-    'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=1400'
-];
 
 // ==================== LOADING SCREEN ====================
 async function initLoadingScreen() {
@@ -57,41 +28,57 @@ async function initLoadingScreen() {
         progressBar.style.width = `${Math.min(progress, 100)}%`;
     }, 100);
     
-    // Cargar datos desde localStorage
-    loadDataFromStorage();
+    // Verificar conexión y cargar datos
+    const connected = await checkConnection();
+    if (!connected) {
+        showNotification('Error de conexión con el servidor', 'error');
+    }
     
-    // Escuchar cambios en localStorage (para sincronizar entre pestañas)
-    window.addEventListener('storage', (e) => {
-        if (e.key === STORAGE_PIZZAS || e.key === STORAGE_CARRUSEL || e.key === 'pizzeria_update') {
-            loadDataFromStorage();
-        }
-    });
+    await loadPizzas();
+    await loadCarouselImages();
 }
 
-// Cargar datos desde localStorage
-function loadDataFromStorage() {
-    // Cargar pizzas
-    const savedPizzas = localStorage.getItem(STORAGE_PIZZAS);
-    if (savedPizzas) {
-        pizzas = JSON.parse(savedPizzas);
-    } else {
-        pizzas = JSON.parse(JSON.stringify(DEFAULT_PIZZAS));
-        localStorage.setItem(STORAGE_PIZZAS, JSON.stringify(pizzas));
+// Cargar pizzas desde Supabase
+async function loadPizzas() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('productos')
+            .select('*')
+            .gte('stock', 1)
+            .order('nombre');
+            
+        if (error) throw error;
+        
+        pizzas = data || [];
+        renderPizzas();
+        initScrollReveal();
+    } catch (error) {
+        console.error('Error cargando pizzas:', error);
+        showNotification('Error al cargar las pizzas', 'error');
     }
-    
-    // Cargar carrusel
-    const savedCarrusel = localStorage.getItem(STORAGE_CARRUSEL);
-    if (savedCarrusel) {
-        carouselImages = JSON.parse(savedCarrusel);
-    } else {
-        carouselImages = [...DEFAULT_CARRUSEL];
-        localStorage.setItem(STORAGE_CARRUSEL, JSON.stringify(carouselImages));
+}
+
+// Cargar imágenes del carrusel desde Supabase
+async function loadCarouselImages() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('carrusel')
+            .select('*')
+            .order('orden');
+            
+        if (error) throw error;
+        
+        carouselImages = data || [];
+        initCarousel();
+    } catch (error) {
+        console.error('Error cargando carrusel:', error);
+        // Imágenes por defecto
+        carouselImages = [
+            { imagen_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1400' },
+            { imagen_url: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=1400' }
+        ];
+        initCarousel();
     }
-    
-    // Renderizar
-    renderPizzas();
-    initCarousel();
-    initScrollReveal();
 }
 
 // ==================== CARRUSEL ====================
@@ -102,11 +89,11 @@ function initCarousel() {
     if (!slidesContainer) return;
     
     if (carouselImages.length === 0) {
-        carouselImages = DEFAULT_CARRUSEL;
+        carouselImages = [{ imagen_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1400' }];
     }
     
     slidesContainer.innerHTML = carouselImages.map((img, index) => `
-        <div class="carousel-slide ${index === 0 ? 'active' : ''}" style="background-image: url('${img}')">
+        <div class="carousel-slide ${index === 0 ? 'active' : ''}" style="background-image: url('${img.imagen_url}')">
             <div class="carousel-caption">
                 <h2>Pizzería Dinamita</h2>
                 <p>La mejor pizza artesanal</p>
@@ -155,7 +142,6 @@ function renderPizzas() {
     const container = document.getElementById('pizzasContainer');
     if (!container) return;
     
-    // Filtrar solo pizzas con stock > 0
     const pizzasDisponibles = pizzas.filter(p => p.stock > 0);
     
     if (pizzasDisponibles.length === 0) {
@@ -163,12 +149,10 @@ function renderPizzas() {
         return;
     }
     
-    container.innerHTML = pizzasDisponibles.map(pizza => {
-        let imgSrc = pizza.imagen_data || pizza.imagen_url || 'https://via.placeholder.com/400x300?text=Pizza';
-        return `
+    container.innerHTML = pizzasDisponibles.map(pizza => `
         <div class="pizza-card scroll-reveal" data-id="${pizza.id}">
             <div class="pizza-img-container">
-                <img src="${imgSrc}" 
+                <img src="${pizza.imagen_url || 'https://via.placeholder.com/400x300?text=Pizza'}" 
                      alt="${escapeHtml(pizza.nombre)}" 
                      class="pizza-img" 
                      onerror="this.src='https://via.placeholder.com/400x300?text=Pizza'">
@@ -188,7 +172,7 @@ function renderPizzas() {
                 </div>
             </div>
         </div>
-    `}).join('');
+    `).join('');
 }
 
 // ==================== CARRITO ====================
@@ -290,10 +274,11 @@ function ordenarPorWhatsApp() {
     const total = carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
     mensaje += `\n*Total:* $${total.toFixed(2)}\n\n_¡Gracias por tu pedido!_`;
     
-    const telefono = "5491123456789";
+    const telefono = "5491123456789"; // Reemplazar con número real
     window.open(`https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`, '_blank');
 }
 
+// ==================== UI ====================
 function animateCartIcon() {
     const cartIcon = document.querySelector('.cart-icon');
     cartIcon.style.transform = 'scale(1.1)';
