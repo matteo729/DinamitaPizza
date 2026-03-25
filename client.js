@@ -72,7 +72,6 @@ async function loadCarouselImages() {
         initCarousel();
     } catch (error) {
         console.error('Error cargando carrusel:', error);
-        // Imágenes por defecto
         carouselImages = [
             { imagen_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1400' },
             { imagen_url: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=1400' }
