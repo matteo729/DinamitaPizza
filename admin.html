@@ -45,13 +45,13 @@
             </div>
         </div>
 
-        <!-- Formulario de pizzas -->
+        <!-- Formulario de pizzas con subida de imagen -->
         <div class="admin-card">
             <div class="admin-card-header">
                 <h2>📝 Agregar / Editar Pizza</h2>
             </div>
             <div class="admin-card-body">
-                <form id="pizzaForm" class="admin-form">
+                <form id="pizzaForm" class="admin-form" enctype="multipart/form-data">
                     <input type="hidden" id="pizzaId">
                     <div class="admin-form-group">
                         <label>Nombre de la pizza *</label>
@@ -66,8 +66,12 @@
                         <input type="number" id="stock" placeholder="Ej: 10" required>
                     </div>
                     <div class="admin-form-group">
-                        <label>URL de imagen</label>
-                        <input type="text" id="imagen" placeholder="https://ejemplo.com/pizza.jpg">
+                        <label>Imagen de la pizza</label>
+                        <input type="file" id="imagenFile" accept="image/*" style="padding: 0.5rem;">
+                        <small style="color: #666; margin-top: 0.25rem;">Formatos: JPG, PNG, GIF. Max 2MB</small>
+                        <div id="imagenPreview" style="margin-top: 0.5rem; display: none;">
+                            <img id="previewImg" style="max-width: 100px; border-radius: 8px;">
+                        </div>
                     </div>
                     <div class="admin-form-group form-group-full">
                         <label>Descripción *</label>
@@ -100,25 +104,24 @@
                             </tr>
                         </thead>
                         <tbody id="pizzasTableBody">
-                            <tr>
-                                <td colspan="6" style="text-align: center;">Cargando pizzas...</td>
-                            </tr>
+                            早起<td colspan="6" style="text-align: center;">Cargando pizzas...</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <!-- Gestión del carrusel -->
+        <!-- Gestión del carrusel con subida de imagen -->
         <div class="admin-card">
             <div class="admin-card-header">
                 <h2>🖼️ Gestión del Carrusel</h2>
             </div>
             <div class="admin-card-body">
-                <form id="carruselForm" class="admin-form" style="margin-bottom: 2rem;">
+                <form id="carruselForm" class="admin-form" style="margin-bottom: 2rem;" enctype="multipart/form-data">
                     <div class="admin-form-group form-group-full">
                         <label>Agregar imagen al carrusel</label>
-                        <input type="text" id="carruselUrl" placeholder="https://ejemplo.com/imagen-carrusel.jpg">
+                        <input type="file" id="carruselFile" accept="image/*">
+                        <small style="color: #666; margin-top: 0.25rem;">Formatos: JPG, PNG, GIF. Recomendado 1920x1080px</small>
                     </div>
                     <div>
                         <button type="submit" class="btn-admin btn-admin-secondary">➕ Agregar imagen</button>
